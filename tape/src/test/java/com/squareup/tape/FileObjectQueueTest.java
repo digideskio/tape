@@ -3,13 +3,16 @@ package com.squareup.tape;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import static org.fest.assertions.Assertions.assertThat;
+import static org.fest.assertions.Fail.fail;
 
 public class FileObjectQueueTest {
   @Rule public TemporaryFolder folder = new TemporaryFolder();
@@ -47,5 +50,61 @@ public class FileObjectQueueTest {
   @Test public void peekMaxCanBeSmallerThanQueueDepth() throws IOException {
     List<String> peek = queue.peek(2);
     assertThat(peek).containsExactly("one", "two");
+  }
+
+  @Test public void listenerOnAddInvokedForExistingEntries() throws IOException {
+    final List<String> saw = new ArrayList<String>();
+    queue.setListener(new ObjectQueue.Listener<String>() {
+      @Override public void onAdd(ObjectQueue<String> queue, String entry) {
+        saw.add(entry);
+      }
+
+      @Override public void onRemove(ObjectQueue<String> queue) {
+        fail("onRemove should not be invoked");
+      }
+    });
+    assertThat(saw).containsExactly("one", "two", "three");
+  }
+
+  @Test public void listenerOnRemoveInvokedForRemove() throws IOException {
+    final AtomicInteger count = new AtomicInteger();
+    queue.setListener(new ObjectQueue.Listener<String>() {
+      @Override public void onAdd(ObjectQueue<String> queue, String entry) {
+      }
+
+      @Override public void onRemove(ObjectQueue<String> queue) {
+        count.getAndIncrement();
+      }
+    });
+    queue.remove();
+    assertThat(count.get()).isEqualTo(1);
+  }
+
+  @Test public void listenerOnRemoveInvokedForRemoveN() throws IOException {
+    final AtomicInteger count = new AtomicInteger();
+    queue.setListener(new ObjectQueue.Listener<String>() {
+      @Override public void onAdd(ObjectQueue<String> queue, String entry) {
+      }
+
+      @Override public void onRemove(ObjectQueue<String> queue) {
+        count.getAndIncrement();
+      }
+    });
+    queue.remove(2);
+    assertThat(count.get()).isEqualTo(2);
+  }
+
+  @Test public void listenerOnRemoveInvokedForClear() throws IOException {
+    final AtomicInteger count = new AtomicInteger();
+    queue.setListener(new ObjectQueue.Listener<String>() {
+      @Override public void onAdd(ObjectQueue<String> queue, String entry) {
+      }
+
+      @Override public void onRemove(ObjectQueue<String> queue) {
+        count.getAndIncrement();
+      }
+    });
+    queue.clear();
+    assertThat(count.get()).isEqualTo(3);
   }
 }
